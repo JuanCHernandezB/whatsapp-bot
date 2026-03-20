@@ -11,19 +11,18 @@ from sheets import registrar_pedido
 app = FastAPI(title="WhatsApp AI Bot")
 twilio_client = Client(config.TWILIO_SID, config.TWILIO_TOKEN)
 
+VENDEDOR = "whatsapp:+573226706141"
 
-def send_whatsapp(to: str, body: str):
+def send_whatsapp(to, body):
     twilio_client.messages.create(
         body=body,
         from_="whatsapp:" + config.TWILIO_NUMBER,
         to=to
     )
 
-
 @app.get("/health")
 def health_check():
     return {"status": "ok", "bot": config.EMPRESA}
-
 
 @app.post("/webhook")
 async def webhook(From: str = Form(...), Body: str = Form(...)):
@@ -31,7 +30,6 @@ async def webhook(From: str = Form(...), Body: str = Form(...)):
     text = Body.strip()
     print("[MSG] " + phone + ": " + text)
 
-    # Comando vendedor: reactivar bot para un cliente
     if text.startswith("/bot-on"):
         partes = text.split(" ")
         if len(partes) == 2:
@@ -39,11 +37,9 @@ async def webhook(From: str = Form(...), Body: str = Form(...)):
             if not numero.startswith("whatsapp:"):
                 numero = "whatsapp:" + numero
             set_human_mode(numero, False)
-            reply = "Bot reactivado para " + numero
-            send_whatsapp(phone, reply)
+            send_whatsapp(phone, "Bot reactivado para " + numero)
             return PlainTextResponse("", status_code=200)
 
-    # Comando vendedor: desactivar bot para un cliente
     if text.startswith("/bot-off"):
         partes = text.split(" ")
         if len(partes) == 2:
@@ -51,30 +47,25 @@ async def webhook(From: str = Form(...), Body: str = Form(...)):
             if not numero.startswith("whatsapp:"):
                 numero = "whatsapp:" + numero
             set_human_mode(numero, True)
-            reply = "Bot desactivado para " + numero
-            send_whatsapp(phone, reply)
+            send_whatsapp(phone, "Bot desactivado para " + numero)
             return PlainTextResponse("", status_code=200)
 
     if is_human_mode(phone):
         print("[HUMANO] " + phone + " bot desactivado")
         return PlainTextResponse("", status_code=200)
 
-   triggers = ["humano", "asesor", "persona", "agente"]
+    triggers = ["humano", "asesor", "persona", "agente"]
     if any(w in text.lower() for w in triggers):
         set_human_mode(phone, True)
-        reply = "Un asesor humano se comunicara contigo pronto. Horario: Lun-Sab 9am-7pm."
+        reply = "Un asesor se comunicara contigo pronto. Horario: Lun-Sab 9am-7pm."
         send_whatsapp(phone, reply)
         save_messages(phone, text, reply)
-
-        # Notificar al vendedor que un cliente necesita atencion humana
-        alerta = (
-            "CLIENTE NECESITA ASESOR\n"
-            "Numero: " + phone.replace("whatsapp:", "") + "\n"
-            "Mensaje: " + text + "\n\n"
-            "Cuando termines de atenderlo escribe:\n"
-            "/bot-on " + phone.replace("whatsapp:", "")
-        )
-        send_whatsapp("whatsapp:+573226706141", alerta)
+        alerta = ("CLIENTE NECESITA ASESOR\n"
+                  "Numero: " + phone.replace("whatsapp:", "") + "\n"
+                  "Mensaje: " + text + "\n\n"
+                  "Cuando termines escribe:\n"
+                  "/bot-on " + phone.replace("whatsapp:", ""))
+        send_whatsapp(VENDEDOR, alerta)
         return PlainTextResponse("", status_code=200)
 
     try:
@@ -84,6 +75,11 @@ async def webhook(From: str = Form(...), Body: str = Form(...)):
         if "TRANSFERIR_HUMANO" in reply:
             set_human_mode(phone, True)
             reply = "No tengo esa informacion. Un asesor te contactara pronto."
+            alerta = ("CLIENTE NECESITA ASESOR\n"
+                      "Numero: " + phone.replace("whatsapp:", "") + "\n"
+                      "Cuando termines escribe:\n"
+                      "/bot-on " + phone.replace("whatsapp:", ""))
+            send_whatsapp(VENDEDOR, alerta)
 
         elif "PEDIDO_CONFIRMAR" in reply:
             linea = ""
@@ -93,7 +89,6 @@ async def webhook(From: str = Form(...), Body: str = Form(...)):
                     break
             print("[PEDIDO LINEA] " + linea)
             partes = linea.split("|")
-            print("[PEDIDO PARTES] " + str(partes))
             exito = False
             try:
                 nombre     = partes[1].strip()
@@ -128,7 +123,6 @@ async def webhook(From: str = Form(...), Body: str = Form(...)):
         send_whatsapp(phone, "Tuve un problema tecnico. Intenta en unos minutos.")
 
     return PlainTextResponse("", status_code=200)
-
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=config.PORT, reload=True)
