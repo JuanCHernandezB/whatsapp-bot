@@ -59,12 +59,22 @@ async def webhook(From: str = Form(...), Body: str = Form(...)):
         print("[HUMANO] " + phone + " bot desactivado")
         return PlainTextResponse("", status_code=200)
 
-    triggers = ["humano", "asesor", "persona", "agente"]
+   triggers = ["humano", "asesor", "persona", "agente"]
     if any(w in text.lower() for w in triggers):
         set_human_mode(phone, True)
         reply = "Un asesor humano se comunicara contigo pronto. Horario: Lun-Sab 9am-7pm."
         send_whatsapp(phone, reply)
         save_messages(phone, text, reply)
+
+        # Notificar al vendedor que un cliente necesita atencion humana
+        alerta = (
+            "CLIENTE NECESITA ASESOR\n"
+            "Numero: " + phone.replace("whatsapp:", "") + "\n"
+            "Mensaje: " + text + "\n\n"
+            "Cuando termines de atenderlo escribe:\n"
+            "/bot-on " + phone.replace("whatsapp:", "")
+        )
+        send_whatsapp("whatsapp:+573226706141", alerta)
         return PlainTextResponse("", status_code=200)
 
     try:
