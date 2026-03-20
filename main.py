@@ -31,6 +31,30 @@ async def webhook(From: str = Form(...), Body: str = Form(...)):
     text = Body.strip()
     print("[MSG] " + phone + ": " + text)
 
+    # Comando vendedor: reactivar bot para un cliente
+    if text.startswith("/bot-on"):
+        partes = text.split(" ")
+        if len(partes) == 2:
+            numero = partes[1].strip()
+            if not numero.startswith("whatsapp:"):
+                numero = "whatsapp:" + numero
+            set_human_mode(numero, False)
+            reply = "Bot reactivado para " + numero
+            send_whatsapp(phone, reply)
+            return PlainTextResponse("", status_code=200)
+
+    # Comando vendedor: desactivar bot para un cliente
+    if text.startswith("/bot-off"):
+        partes = text.split(" ")
+        if len(partes) == 2:
+            numero = partes[1].strip()
+            if not numero.startswith("whatsapp:"):
+                numero = "whatsapp:" + numero
+            set_human_mode(numero, True)
+            reply = "Bot desactivado para " + numero
+            send_whatsapp(phone, reply)
+            return PlainTextResponse("", status_code=200)
+
     if is_human_mode(phone):
         print("[HUMANO] " + phone + " bot desactivado")
         return PlainTextResponse("", status_code=200)
